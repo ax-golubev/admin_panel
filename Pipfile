@@ -1,0 +1,20 @@
+[[source]]
+name = "pypi"
+url = "https://pypi.org/simple"
+verify_ssl = true
+
+[dev-packages]
+black = "==18.4a4"
+flake8 = "*"
+pylint = "*"
+mypy = "*"
+isort = "*"
+django-debug-toolbar = "*"
+
+[packages]
+psycopg2-binary = "*"
+django = "*"
+django-environ = "*"
+
+[requires]
+python_version = "3.8"
