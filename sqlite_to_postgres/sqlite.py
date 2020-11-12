@@ -1,8 +1,55 @@
 import json
 import sqlite3
 from contextlib import contextmanager
-from typing import Dict
+from dataclasses import dataclass, field
+from datetime import datetime
+from typing import Dict, List, Tuple
 from uuid import uuid4
+
+
+@dataclass
+class Movie:
+    id: str
+    title: str
+    description: str
+    rating: float
+    created: datetime = field(default_factory=datetime.now)
+    modified: datetime = field(default_factory=datetime.now)
+
+
+@dataclass
+class Person:
+    id: str
+    full_name: str
+    created: datetime = field(default_factory=datetime.now)
+    modified: datetime = field(default_factory=datetime.now)
+
+
+@dataclass
+class Genre:
+    id: str
+    title: str
+    created: datetime = field(default_factory=datetime.now)
+    modified: datetime = field(default_factory=datetime.now)
+
+
+@dataclass
+class MovieGenre:
+    id: str
+    movie_id: str
+    genre_id: str
+    created: datetime = field(default_factory=datetime.now)
+    modified: datetime = field(default_factory=datetime.now)
+
+
+@dataclass
+class MoviePerson:
+    id: str
+    movie_id: str
+    person_id: str
+    role: str
+    created: datetime = field(default_factory=datetime.now)
+    modified: datetime = field(default_factory=datetime.now)
 
 
 def _dict_factory(cursor: sqlite3.Cursor, row: tuple) -> dict:
@@ -87,7 +134,7 @@ def _get_writers(conn: sqlite3.Connection) -> Dict[str, str]:
     return result
 
 
-def _get_new_key():
+def _get_new_key() -> str:
     """ Получаем новый ключ """
     return str(uuid4())
 
@@ -97,11 +144,11 @@ class Extractor:
 
     def __init__(self, conn: sqlite3.Connection) -> None:
         self._conn = conn
-        self.movies = []
-        self.persons = {}
-        self.genres = {}
-        self.movies_genres = []
-        self.movies_persons = []
+        self.movies: List[Movie] = []
+        self.persons: Dict[str, str] = {}
+        self.genres: Dict[str, str] = {}
+        self.movies_genres: List[MovieGenre] = []
+        self.movies_persons: List[MoviePerson] = []
 
     def _get_movies(self) -> list:
         """ Получаем все фильмы из SQLite """
@@ -116,7 +163,11 @@ class Extractor:
         for genre in raw_movie_data["genre"].split(","):
             genre_uuid = self.genres.setdefault(genre.strip(), _get_new_key())
             self.movies_genres.append(
-                (_get_new_key(), raw_movie_data["id"], genre_uuid)
+                MovieGenre(
+                    id=_get_new_key(),
+                    movie_id=raw_movie_data["id"],
+                    genre_id=genre_uuid,
+                )
             )
 
     def _process_persons(self, raw_movie_data: dict, writers: dict) -> None:
@@ -131,24 +182,43 @@ class Extractor:
                 set_of_actors.add(actor_id)
                 person_uuid = self.persons.setdefault(actor_name, _get_new_key())
                 self.movies_persons.append(
-                    (_get_new_key(), raw_movie_data["id"], person_uuid, "actor")
+                    MoviePerson(
+                        id=_get_new_key(),
+                        movie_id=raw_movie_data["id"],
+                        person_id=person_uuid,
+                        role="actor",
+                    )
                 )
 
         for director in raw_movie_data["director"].split(","):
             if director != "N/A":
                 person_uuid = self.persons.setdefault(director, _get_new_key())
                 self.movies_persons.append(
-                    (_get_new_key(), raw_movie_data["id"], person_uuid, "director")
+                    MoviePerson(
+                        id=_get_new_key(),
+                        movie_id=raw_movie_data["id"],
+                        person_id=person_uuid,
+                        role="director",
+                    )
                 )
 
         set_of_writers = set()
         for writer in json.loads(raw_movie_data["writers"]):
             writer_name = writers.get(writer["id"])
-            if writer_name != "N/A" and writer["id"] not in set_of_writers:
+            if (
+                writer_name
+                and writer_name != "N/A"
+                and writer["id"] not in set_of_writers
+            ):
                 set_of_writers.add(writer["id"])
                 person_uuid = self.persons.setdefault(writer_name, _get_new_key())
                 self.movies_persons.append(
-                    (_get_new_key(), raw_movie_data["id"], person_uuid, "writer")
+                    MoviePerson(
+                        id=_get_new_key(),
+                        movie_id=raw_movie_data["id"],
+                        person_id=person_uuid,
+                        role="writer",
+                    )
                 )
 
     def _process_movie_data(self, writers: dict, raw_movie_data: dict) -> None:
@@ -158,7 +228,7 @@ class Extractor:
 
         description = raw_movie_data["description"]
         if description == "N/A":
-            description = None
+            description = ""
 
         try:
             imdb_rating = float(raw_movie_data["imdb_rating"])
@@ -169,15 +239,19 @@ class Extractor:
         self._process_persons(raw_movie_data, writers)
 
         self.movies.append(
-            {
-                "id": raw_movie_data["id"],
-                "rating": imdb_rating,
-                "title": raw_movie_data["title"],
-                "description": description,
-            }
+            Movie(
+                id=raw_movie_data["id"],
+                title=raw_movie_data["title"],
+                description=description,
+                rating=imdb_rating,
+            )
         )
 
-    def get_data(self):
+    def get_data(
+        self
+    ) -> Tuple[
+        List[Movie], List[Person], List[Genre], List[MoviePerson], List[MovieGenre]
+    ]:
         """ Получаем обобщенные данные для таблиц. """
 
         raw_movies = self._get_movies()
@@ -186,8 +260,8 @@ class Extractor:
         for raw_movie_data in raw_movies:
             self._process_movie_data(writers, raw_movie_data)
 
-        persons = [(v, k) for k, v in self.persons.items()]
-        genres = [(v, k) for k, v in self.genres.items()]
+        persons = [Person(id=v, full_name=k) for k, v in self.persons.items()]
+        genres = [Genre(id=v, title=k) for k, v in self.genres.items()]
 
         return self.movies, persons, genres, self.movies_persons, self.movies_genres
 

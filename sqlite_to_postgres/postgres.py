@@ -1,118 +1,83 @@
-import csv
-import io
-from datetime import datetime
-from typing import Tuple
+from typing import List, Tuple
 
+from config import TIMEZONE
 from psycopg2.extensions import connection
 from psycopg2.extensions import cursor as pg_cursor
+from psycopg2.extras import execute_values
+from sqlite import Genre, Movie, MovieGenre, MoviePerson, Person
 
-TIMEZONE = "Europe/Moscow"
 
-
-def save_movies(cursor: pg_cursor, movies: list):
+def save_movies(cursor: pg_cursor, movies: List[Movie]) -> None:
     """ Загружает фильмы в content.movies. """
 
-    output = io.StringIO()
-    headers = ["id", "title", "description", "rating", "created", "modified"]
-    delimiter = "<"
-    writer = csv.DictWriter(output, delimiter=delimiter, fieldnames=headers)
+    SQL = "INSERT INTO content.film_work(id, title, description, rating, created, modified) VALUES %s"
 
-    for movie in movies:
-        movie["created"] = movie["modified"] = datetime.now()
-        writer.writerow(movie)
-
-    output.seek(0)
-
-    cursor.copy_from(output, "content.film_work", sep=delimiter, columns=headers)
-
-    output.close()
+    execute_values(
+        cursor,
+        SQL,
+        [
+            (m.id, m.title, m.description, m.rating, m.created, m.modified)
+            for m in movies
+        ],
+    )
 
 
-def save_persons(cursor: pg_cursor, persons: list):
+def save_persons(cursor: pg_cursor, persons: List[Person]) -> None:
     """ Загружает лица в content.persons. """
 
-    output = io.StringIO()
+    SQL = "INSERT INTO content.persons(id, full_name, created, modified) VALUES %s"
 
-    for id_, full_name in persons:
-        created = modified = datetime.now()
-        output.write(f"{id_},{full_name},{created},{modified}\n")
-
-    output.seek(0)
-
-    cursor.copy_from(
-        output,
-        "content.persons",
-        sep=",",
-        columns=["id", "full_name", "created", "modified"],
+    execute_values(
+        cursor, SQL, [(p.id, p.full_name, p.created, p.modified) for p in persons]
     )
 
-    output.close()
 
-
-def save_genres(cursor: pg_cursor, genres: list):
+def save_genres(cursor: pg_cursor, genres: List[Genre]) -> None:
     """ Загружает жанры в content.genres. """
 
-    output = io.StringIO()
+    SQL = "INSERT INTO content.genres(id, title, created, modified) VALUES %s"
 
-    for id_, title in genres:
-        created = modified = datetime.now()
-        output.write(f"{id_},{title},{created},{modified}\n")
-
-    output.seek(0)
-
-    cursor.copy_from(
-        output,
-        "content.genres",
-        sep=",",
-        columns=["id", "title", "created", "modified"],
+    execute_values(
+        cursor, SQL, [(g.id, g.title, g.created, g.modified) for g in genres]
     )
 
-    output.close()
 
-
-def save_movies_persons(cursor: pg_cursor, movies_persons: list):
+def save_movies_persons(cursor: pg_cursor, movies_persons: List[MoviePerson]) -> None:
     """ Загружает данные в таблицу content.movies_persons. """
 
-    output = io.StringIO()
+    SQL = "INSERT INTO content.film_works_persons(id, film_work_id, person_id, role, created, modified) VALUES %s"
 
-    for id_, movie_id, person_id, role in movies_persons:
-        created = modified = datetime.now()
-        output.write(f"{id_},{movie_id},{person_id},{role},{created},{modified}\n")
-
-    output.seek(0)
-
-    cursor.copy_from(
-        output,
-        "content.film_works_persons",
-        sep=",",
-        columns=["id", "film_work_id", "person_id", "role", "created", "modified"],
+    execute_values(
+        cursor,
+        SQL,
+        [
+            (mp.id, mp.movie_id, mp.person_id, mp.role, mp.created, mp.modified)
+            for mp in movies_persons
+        ],
     )
 
-    output.close()
 
-
-def save_movies_genres(cursor: pg_cursor, movies_genres: list):
+def save_movies_genres(cursor: pg_cursor, movies_genres: List[MovieGenre]) -> None:
     """ Загружает данные в таблицу content.movies_genres. """
 
-    output = io.StringIO()
+    SQL = "INSERT INTO content.film_works_genres(id, film_work_id, genre_id, created, modified) VALUES %s"
 
-    for id_, movie_id, genre_id in movies_genres:
-        created = modified = datetime.now()
-        output.write(f"{id_},{movie_id},{genre_id},{created},{modified}\n")
-
-    output.seek(0)
-
-    cursor.copy_from(
-        output,
-        "content.film_works_genres",
-        sep=",",
-        columns=["id", "film_work_id", "genre_id", "created", "modified"],
+    execute_values(
+        cursor,
+        SQL,
+        [
+            (mg.id, mg.movie_id, mg.genre_id, mg.created, mg.modified)
+            for mg in movies_genres
+        ],
     )
 
-    output.close()
 
-
-def save_all_data(conn: connection, data: Tuple[list, list, list, list, list]):
+def save_all_data(
+    conn: connection,
+    data: Tuple[
+        List[Movie], List[Person], List[Genre], List[MoviePerson], List[MovieGenre]
+    ],
+) -> None:
     """ Основной метод загрузки данных в Postgres """
     movies, persons, genres, movies_persons, movies_genres = data
 
