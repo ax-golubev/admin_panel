@@ -5,8 +5,8 @@ CREATE TABLE IF NOT EXISTS content.genres
     id uuid PRIMARY KEY,
     title text NOT NULL,
     description text,
-    created_at timestamp with time zone,
-    updated_at timestamp with time zone
+    created timestamp with time zone,
+    modified timestamp with time zone
 );
 
 CREATE TABLE IF NOT EXISTS content.film_work
@@ -19,32 +19,34 @@ CREATE TABLE IF NOT EXISTS content.film_work
     file_path text,
     rating float,
     type text,
-    created_at timestamp with time zone,
-    updated_at timestamp with time zone
+    created timestamp with time zone,
+    modified timestamp with time zone
 );
 
 CREATE TABLE IF NOT EXISTS content.persons (
     id uuid PRIMARY KEY,
     full_name text NOT NULL,
     birth_date date,
-    created_at timestamp with time zone,
-    updated_at timestamp with time zone
+    created timestamp with time zone,
+    modified timestamp with time zone
 );
 
 CREATE TABLE IF NOT EXISTS content.film_works_genres
 (
     id uuid PRIMARY KEY,
-    film_work_id uuid REFERENCES content.film_work ON DELETE SET NULL,
-	genre_id uuid REFERENCES content.genres ON DELETE SET NULL,
-	created_at timestamp with time zone
+    film_work_id uuid REFERENCES content.film_work ON DELETE CASCADE,
+	genre_id uuid REFERENCES content.genres ON DELETE CASCADE,
+	created timestamp with time zone,
+	modified timestamp with time zone
 );
 
 CREATE TABLE IF NOT EXISTS content.film_works_persons (
     id uuid PRIMARY KEY,
-    film_work_id uuid REFERENCES content.film_work ON DELETE SET NULL,
-    person_id uuid REFERENCES content.persons ON DELETE SET NULL,
+    film_work_id uuid REFERENCES content.film_work ON DELETE CASCADE,
+    person_id uuid REFERENCES content.persons ON DELETE CASCADE,
     role text NOT NULL,
-    created_at timestamp with time zone
+    created timestamp with time zone,
+    modified timestamp with time zone
 );
 
 CREATE UNIQUE INDEX ON content.film_works_genres(film_work_id, genre_id);
