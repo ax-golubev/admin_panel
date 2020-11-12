@@ -1,12 +1,13 @@
 from uuid import uuid4
 
 from django.db import models
+from django.db.models import UniqueConstraint
 from django.utils.translation import gettext_lazy as _
 from django_extensions.db.models import TimeStampedModel
 
 
 class Genre(TimeStampedModel):
-    """ Модель для хранения жанров"""
+    """ Модель для хранения жанров. """
     id = models.UUIDField(primary_key=True, blank=True, default=uuid4, editable=False)
     title = models.TextField(_("название"), max_length=255)
     description = models.TextField(_("описание"), blank=True, null=True)
@@ -21,13 +22,13 @@ class Genre(TimeStampedModel):
 
 
 class FilmWorkType(models.TextChoices):
-    """ Класс для выбора типа кинокартины """
+    """ Класс для выбора типа кинокартины. """
     MOVIE = "movie", _("фильм")
     TV_SERIES = "tv_series", _("сериал")
 
 
 class Person(TimeStampedModel):
-    """ Модель для хранения участников """
+    """ Модель для хранения участников. """
     id = models.UUIDField(primary_key=True, blank=True, default=uuid4, editable=False)
     full_name = models.CharField(_("имя"), db_index=True, max_length=255)
     birth_date = models.DateField(blank=True, null=True)
@@ -43,7 +44,7 @@ class Person(TimeStampedModel):
 
 
 class FilmWork(TimeStampedModel):
-    """ Модель для хранения кинокартин """
+    """ Модель для хранения кинокартин. """
     id = models.UUIDField(primary_key=True, blank=True, default=uuid4, editable=False)
     title = models.CharField(_("название"), db_index=True, max_length=255)
     description = models.TextField(_("описание"), blank=True)
@@ -68,29 +69,33 @@ class FilmWork(TimeStampedModel):
 
 
 class FilmWorksGenres(TimeStampedModel):
-    """ Модель для хранения сопоставлений кинокартин и жанров """
+    """ Модель для хранения сопоставлений кинокартин и жанров. """
     id = models.UUIDField(primary_key=True, blank=True, default=uuid4, editable=False)
-    film_work = models.ForeignKey(FilmWork, null=True, on_delete=models.SET_NULL)
-    genre = models.ForeignKey(Genre, null=True, on_delete=models.SET_NULL)
+    film_work = models.ForeignKey(FilmWork, on_delete=models.CASCADE)
+    genre = models.ForeignKey(Genre, on_delete=models.CASCADE)
 
     class Meta:
         ordering = ("id",)
         db_table = "film_works_genres"
-        unique_together = [["film_work", "genre"]]
+        constraints = [
+            UniqueConstraint(
+                fields=["film_work", "genre"], name="unique_film_work_genre"
+            )
+        ]
 
 
 class RolePerson(models.TextChoices):
-    """ Класс для выбора роли """
+    """ Класс для выбора роли. """
     DIRECTOR = "director", _("режиссер")
     ACTOR = "actor", _("актер")
     WRITERS = "writer", _("сценарист")
 
 
 class FilmWorksPersons(TimeStampedModel):
-    """ Модель для хранения сопоставлений кинокартин и участников """
+    """ Модель для хранения сопоставлений кинокартин и участников. """
     id = models.UUIDField(primary_key=True, blank=True, default=uuid4, editable=False)
-    film_work = models.ForeignKey(FilmWork, null=True, on_delete=models.SET_NULL)
-    person = models.ForeignKey(Person, null=True, on_delete=models.SET_NULL)
+    film_work = models.ForeignKey(FilmWork, on_delete=models.CASCADE)
+    person = models.ForeignKey(Person, on_delete=models.CASCADE)
     role = models.TextField(choices=RolePerson.choices)
 
     class Meta:
@@ -98,4 +103,9 @@ class FilmWorksPersons(TimeStampedModel):
         db_table = "film_works_persons"
         verbose_name = _("Кинокартины и участники")
         verbose_name_plural = _("Кинокартины и участники")
-        unique_together = [["film_work", "person", "role"]]
+        constraints = [
+            UniqueConstraint(
+                fields=["film_work", "person", "role"],
+                name="unique_film_work_person_role",
+            )
+        ]

@@ -2,6 +2,8 @@ import environ
 
 env = environ.Env(
     DEBUG=(bool, False),
+    SECRET_KEY=(str,),
+    ALLOWED_HOSTS=(list, ["*"]),
     POSTGRES_DB=(str, "movies"),
     POSTGRES_HOST=(str, "localhost"),
     POSTGRES_PORT=(int, 5432),
